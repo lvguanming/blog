@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport" />
+    <link rel="alternate icon" type="image/png" href="/blog/img/favicon.png">
+    <link rel="shortcut icon" href="/blog/img/favicon.ico">
+    <title>阿土哥 | 
+        
+            跨语言调用JS
+        
+    </title>
+    
+<link rel="stylesheet" href="/blog/css/reset.css">
+
+    
+<link rel="stylesheet" href="/blog/css/style.css">
+
+    
+<link rel="stylesheet" href="/blog/css/markdown.css">
+
+    
+<link rel="stylesheet" href="/blog/css/fonts.css">
+
+<meta name="generator" content="Hexo 6.2.0"></head>
+    <body>
+        <div class="paper">
+            <div class="paper-main">
+                
+                    <div class="post-header">
+    <a class="logo" href="/blog/">阿土哥</a>
+    <a class="go-home" href="/blog/">
+        <svg width="8" height="14" viewBox="0 0 8 14">
+            <path d="M7 1L1 7l6 6" stroke="#000" stroke-width="2" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </a>
+</div>
+                
+                <div class="post-main">
+
+    
+        <div class="post-main-title">
+            跨语言调用JS
+        </div>
+        <div class="post-meta">
+            2022-07-28
+        </div>
+    
+
+    <div class="post-md">
+        <p>跨语言代码调用的需求普遍存在，例如：对于爬虫项目，浏览器端执行的生成动态签名<code>JS</code>黑盒函数（用于在服务器端对伪造请求拦截，如淘宝的 HTTP 服务），因动态生成签名的函数被严重混淆很难翻译成开发爬虫的<code>Python</code>代码或者<code>Go</code>代码，这时候就需要使用开发语言调用从浏览器中提取的进行签名的<code>JS</code>函数。Python 有 <code>PyExecJS</code>,作为桥梁可以在 Node.js、PyV8、PhantomJS 等底层环境上执行 JS 代码；<code>Java</code>语言有<code>ScriptEngin</code> API 可执行多种语言，</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token class-name">String</span> regular<span class="token operator">=</span><span class="token string">"function func(args1,args2)&#123;...&#125;"</span><span class="token punctuation">;</span>
+<span class="token class-name">ScriptEngine</span> engine <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">ScriptEngineManager</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">getEngineByName</span><span class="token punctuation">(</span><span class="token string">"javascript"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+engine<span class="token punctuation">.</span><span class="token function">eval</span><span class="token punctuation">(</span>regular<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token class-name">Invocable</span> invoke <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token class-name">Invocable</span><span class="token punctuation">)</span> engine<span class="token punctuation">;</span>
+<span class="token class-name">String</span> result <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token class-name">String</span><span class="token punctuation">)</span> invoke<span class="token punctuation">.</span><span class="token function">invokeFunction</span><span class="token punctuation">(</span><span class="token string">"func"</span><span class="token punctuation">,</span> 
+    args1<span class="token punctuation">,</span>args2<span class="token punctuation">)</span><span class="token class-name">System</span><span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>Go</code> 语言有 <code>github.com/dop251/goja</code> 三方库，可以实现类似功能。</p>
+<pre class="line-numbers language-go" data-language="go"><code class="language-go"><span class="token keyword">package</span> main
+
+<span class="token keyword">import</span> <span class="token punctuation">(</span>
+	<span class="token string">"fmt"</span>
+	<span class="token string">"github.com/dop251/goja"</span>
+<span class="token punctuation">)</span>
+
+<span class="token comment">//申明js脚本函数</span>
+<span class="token keyword">const</span> script <span class="token operator">=</span> <span class="token string">`
+    location = &#123;href : ""&#125;
+    function token()&#123;return location;&#125;
+`</span>
+<span class="token comment">//定义代理接口</span>
+<span class="token keyword">var</span> getToken <span class="token keyword">func</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token builtin">string</span>
+
+<span class="token comment">//自动初始化</span>
+<span class="token keyword">func</span> <span class="token function">init</span><span class="token punctuation">(</span>sc <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+	vm <span class="token operator">:=</span> goja<span class="token punctuation">.</span><span class="token function">New</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	<span class="token boolean">_</span><span class="token punctuation">,</span> err <span class="token operator">:=</span> vm<span class="token punctuation">.</span><span class="token function">RunString</span><span class="token punctuation">(</span>script<span class="token punctuation">)</span>
+	<span class="token keyword">if</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">&#123;</span>
+        fmt<span class="token punctuation">.</span><span class="token function">Println</span><span class="token punctuation">(</span><span class="token string">"JS报错了"</span><span class="token punctuation">,</span>err<span class="token punctuation">)</span>
+        <span class="token keyword">return</span>
+	<span class="token punctuation">&#125;</span>
+	err <span class="token operator">=</span> vm<span class="token punctuation">.</span><span class="token function">ExportTo</span><span class="token punctuation">(</span>vm<span class="token punctuation">.</span><span class="token function">Get</span><span class="token punctuation">(</span><span class="token string">"token"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token operator">&amp;</span>getToken<span class="token punctuation">)</span>
+	<span class="token keyword">if</span> err <span class="token operator">!=</span> <span class="token boolean">nil</span> <span class="token punctuation">&#123;</span>
+	    fmt<span class="token punctuation">.</span><span class="token function">Println</span><span class="token punctuation">(</span><span class="token string">"Js函数代理到 Go 函数失败"</span><span class="token punctuation">,</span>err<span class="token punctuation">)</span>
+	    <span class="token keyword">return</span>
+	<span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">func</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+	fmt<span class="token punctuation">.</span><span class="token function">Println</span><span class="token punctuation">(</span><span class="token string">"Let's Go..."</span><span class="token punctuation">)</span>
+	v <span class="token operator">:=</span> <span class="token function">getToken</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+	fmt<span class="token punctuation">.</span><span class="token function">Println</span><span class="token punctuation">(</span>v<span class="token punctuation">)</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>需要注意的是<code>goja</code>库不是所有的浏览器端可执行的 JS 代码都被支持的，类似于 Node.js 环境，对于浏览器内置对象<code>window</code>、<code>location</code>都找不到定义，会报错。所以无法执行模拟浏览器交互行为的代码，以上只是验证跨语言调用是行得通的。具体需求需要具体分析，如果要模拟浏览器行为，不得不使用类似<code>PhantomJS</code>的 HeadLess 软浏览器利器。</p>
+
+    </div>
+
+</div>
+                <div class="footer">
+    <span>Copyright © 2022 lvgm.cn</span>
+    <span><a target="_blank" href="https://beian.miit.gov.cn/">京ICP备13002001号</a></span>
+</div>
+
+
+<link rel="stylesheet" href="/blog/css/a11y-dark.min.css">
+
+
+<script src="/blog/js/highlight.min.js"></script>
+
+
+<script src="/blog/js/highlightjs-line-numbers.js"></script>
+
+
+<script>
+    hljs.highlightAll();
+    hljs.initLineNumbersOnLoad();
+</script>
+
+            </div>
+        </div>
+    </body>
+</html>
